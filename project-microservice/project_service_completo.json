@@ -1,0 +1,176 @@
+{
+  "info": {
+    "_postman_id": "flujo-completo-sistema-2025",
+    "name": "Flujo Completo del Sistema - Gestión de Trabajos de Grado",
+    "description": "Colección que simula flujos completos del sistema, desde el registro de usuarios hasta la evaluación de anteproyectos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🔷 Paso 1: Registrar Usuarios",
+      "item": [
+        {
+          "name": "1.1 Registrar Docente (PLANTA)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"docente@unicauca.edu.co\",\n  \"password\": \"Pass123!\",\n  \"nombres\": \"Juan Carlos\",\n  \"apellidos\": \"Pérez Gómez\",\n  \"programa\": \"INGENIERIA_SISTEMAS\",\n  \"tipoDocente\": \"PLANTA\"\n}"
+            },
+            "url": "http://localhost:8081/api/usuarios/docentes"
+          }
+        },
+        {
+          "name": "1.2 Registrar Estudiante",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"estudiante@unicauca.edu.co\",\n  \"password\": \"Stud123!\",\n  \"nombres\": \"Ana María\",\n  \"apellidos\": \"López Ramírez\",\n  \"programa\": \"INGENIERIA_SISTEMAS\"\n}"
+            },
+            "url": "http://localhost:8081/api/usuarios/estudiantes"
+          }
+        },
+        {
+          "name": "1.3 Registrar Coordinador",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"coordinador@unicauca.edu.co\",\n  \"password\": \"Coord123!\",\n  \"nombres\": \"Carlos Alberto\",\n  \"apellidos\": \"Ramírez Ruiz\",\n  \"programa\": \"INGENIERIA_SISTEMAS\"\n}"
+            },
+            "url": "http://localhost:8081/api/usuarios/coordinadores"
+          }
+        },
+        {
+          "name": "1.4 Registrar Jefe de Departamento",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jefe@unicauca.edu.co\",\n  \"password\": \"Jefe123!\",\n  \"nombres\": \"María Fernanda\",\n  \"apellidos\": \"López Sánchez\",\n  \"programa\": \"INGENIERIA_SISTEMAS\"\n}"
+            },
+            "url": "http://localhost:8081/api/usuarios/jefes-departamento"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔷 Paso 2: Crear Proyecto y Subir Formato A",
+      "item": [
+        {
+          "name": "2.1 Crear Proyecto de Grado",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Sistema de Gestión de Bibliotecas\",\n  \"modalidad\": \"INVESTIGACION\",\n  \"directorEmail\": \"docente@unicauca.edu.co\",\n  \"estudiante1Email\": \"estudiante@unicauca.edu.co\",\n  \"objetivoGeneral\": \"Desarrollar un sistema para gestionar bibliotecas universitarias.\",\n  \"objetivosEspecificos\": \"1. Diseñar la arquitectura. 2. Implementar módulos.\"\n}"
+            },
+            "url": "http://localhost:8082/api/proyectos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔷 Paso 3: Evaluar Formato A (Rechazo)",
+      "item": [
+        {
+          "name": "3.1 Evaluar Formato A - Rechazar",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:8082/api/proyectos/1/evaluar?aprobado=false&observaciones=Falta objetivo específico.",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8082",
+              "path": ["api", "proyectos", "1", "evaluar"],
+              "query": [
+                { "key": "aprobado", "value": "false" },
+                { "key": "observaciones", "value": "Falta objetivo específico." }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔷 Paso 4: Reintentar Formato A",
+      "item": [
+        {
+          "name": "4.1 Reintentar Proyecto",
+          "request": {
+            "method": "POST",
+            "url": "http://localhost:8082/api/proyectos/1/reintentar"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔷 Paso 5: Evaluar Formato A (Aprobación)",
+      "item": [
+        {
+          "name": "5.1 Evaluar Formato A - Aprobar",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:8082/api/proyectos/1/evaluar?aprobado=true&observaciones=Proyecto aprobado.",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8082",
+              "path": ["api", "proyectos", "1", "evaluar"],
+              "query": [
+                { "key": "aprobado", "value": "true" },
+                { "key": "observaciones", "value": "Proyecto aprobado." }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔷 Paso 6: Subir Anteproyecto",
+      "item": [
+        {
+          "name": "6.1 Subir Anteproyecto",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "http://localhost:8082/api/proyectos/1/anteproyecto?jefeDepartamentoEmail=jefe@unicauca.edu.co",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "8082",
+              "path": ["api", "proyectos", "1", "anteproyecto"],
+              "query": [
+                { "key": "jefeDepartamentoEmail", "value": "jefe@unicauca.edu.co" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔷 Paso 7: Consultar Estados",
+      "item": [
+        {
+          "name": "7.1 Estudiante: Ver Estado del Proyecto",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8082/api/proyectos/estudiante/estudiante@unicauca.edu.co"
+          }
+        },
+        {
+          "name": "7.2 Jefe: Ver Anteproyectos",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8082/api/proyectos/anteproyectos/jefe/jefe@unicauca.edu.co"
+          }
+        }
+      ]
+    }
+  ]
+}
