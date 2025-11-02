@@ -1,24 +1,28 @@
-# user-microservice
+# document-microservice
 
-Microservicio encargado de la gestión de usuarios del sistema de Gestión de Trabajos de Grado.
+Microservicio para la gestión de documentos asociados a proyectos de grado (Formato A, anteproyecto, etc.).
 
 ## Funcionalidades
-- Registro de docentes, estudiantes, coordinadores y jefes de departamento.
-- Validación de email institucional (`@unicauca.edu.co`).
-- Validación de contraseñas seguras (mínimo 6 caracteres, dígito, especial, mayúscula).
-- Endpoint para validación cruzada (`/api/usuarios/validar`).
+- Subida de documentos PDF.
+- Descarga de documentos subidos.
+- Descarga de plantilla del Formato A (`formatoA.doc`).
+- Validación de tipo de archivo (solo PDF para documentos).
+- Almacenamiento de metadatos en H2 y archivos en disco local.
+
+## Patrones de diseño
+- **Factory Method**: Crea validadores según el tipo de documento.
+- **Singleton**: `DocumentoFactory` garantiza una única instancia.
 
 ## Tecnologías
 - Spring Boot 3
-- Spring Data JPA + H2 (base de datos en memoria)
-- Swagger UI para documentación
+- Almacenamiento en disco local (`./documentos`)
+- H2 (modo archivo, persistente)
 
 ## Endpoints
-- `POST /api/usuarios/docentes`
-- `POST /api/usuarios/estudiantes`
-- `POST /api/usuarios/coordinadores`
-- `POST /api/usuarios/jefes-departamento`
-- `GET /api/usuarios/validar?email=...`
+- `POST /api/documentos/subir`
+- `GET /api/documentos/descargar/{id}`
+- `GET /api/documentos/proyecto/{idProyecto}`
+- `GET /api/documentos/plantilla/formato-a`
 
 ## Puerto
-- `8081`
+- `8083`

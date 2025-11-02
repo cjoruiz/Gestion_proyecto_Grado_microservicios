@@ -8,6 +8,7 @@ Microservicio encargado de la gestión de usuarios del sistema de Gestión de Tr
 - Validación de contraseñas seguras (mínimo 6 caracteres, dígito, especial, mayúscula).
 - Endpoint para validación cruzada (`/api/usuarios/validar`).
 - Persistencia de datos entre reinicios (gracias a H2 en modo archivo).
+- El `email` es el identificador único (clave primaria), como en el monolítico.
 
 ## Tecnologías
 - Spring Boot 3

@@ -4,23 +4,24 @@ Microservicio que gestiona el ciclo de vida de los proyectos de grado, incluyend
 
 ## Funcionalidades
 - Creación de proyectos de grado.
-- Evaluación de Formato A (aprobar/rechazar).
-- Reintento de Formato A (hasta 3 intentos).
-- Subida de anteproyecto.
-- Consulta de proyectos por estudiante o jefe de departamento.
-- Publicación de eventos asíncronos (RabbitMQ).
+- Evaluación de Formato A (aprobar/rechazar) con notificación asíncrona.
+- Reintento de Formato A (hasta 3 intentos) con notificación.
+- Subida de anteproyecto tras aprobación del Formato A.
+- Consulta de proyectos por estudiante.
+- Consulta de anteproyectos por jefe de departamento.
+- Validación de usuarios mediante Feign (comunicación con `user-microservice`).
 
 ## Patrones de diseño
-- State (estados del proyecto)
-- Template Method (evaluación)
-- Facade (orquestación)
-- Adapter (comunicación con user-service vía Feign)
+- **State**: Modela los estados del proyecto.
+- **Template Method**: Estandariza el flujo de evaluación.
+- **Facade**: Simplifica la interacción del frontend.
+- **Adapter**: Feign Client para consumir `user-microservice`.
 
 ## Tecnologías
 - Spring Boot 3
 - Spring Cloud OpenFeign
 - Spring AMQP + RabbitMQ
-- H2 (base de datos en memoria)
+- H2 (modo archivo, persistente)
 
 ## Endpoints
 - `POST /api/proyectos`

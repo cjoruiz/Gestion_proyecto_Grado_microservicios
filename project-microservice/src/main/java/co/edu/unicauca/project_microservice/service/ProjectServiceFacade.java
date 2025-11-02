@@ -20,11 +20,11 @@ public class ProjectServiceFacade implements IProjectServiceFacade {
     @Autowired private EnPrimeraEvaluacionState enPrimeraEvaluacionState;
     @Autowired private EvaluadorAprobacion evaluadorAprobacion;
     @Autowired private EvaluadorRechazo evaluadorRechazo;
-    @Autowired private UserClient userClient; // 👈 Inyecta Feign Client
+    @Autowired private UserClient userClient; // Inyecta Feign Client
 
     private void validarUsuario(String email, String rolEsperado) {
         try {
-            Map<String, Object> respuesta = userClient.validarUsuario(email); // 👈 Usa Feign
+            Map<String, Object> respuesta = userClient.validarUsuario(email); //  Usa Feign
             Boolean existe = (Boolean) respuesta.get("existe");
             String rol = (String) respuesta.get("rol");
 
