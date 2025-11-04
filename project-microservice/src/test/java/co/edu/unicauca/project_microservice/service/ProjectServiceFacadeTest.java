@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
 
@@ -41,6 +42,9 @@ class ProjectServiceFacadeTest {
 
     @Mock
     private EvaluadorRechazo evaluadorRechazo;
+
+    @Mock
+    private FormatoARechazadoState formatoARechazadoState;
 
     // --- CASO: Estudiante no existe ---
     @Test
@@ -84,8 +88,19 @@ class ProjectServiceFacadeTest {
         proyecto.setId(1L);
         proyecto.setNumeroIntento(1);
         proyecto.setEstadoActual("FORMATO_A_RECHAZADO");
+        
+        // Inyectar el estado mock usando reflection para evitar la excepción
+        ReflectionTestUtils.setField(proyecto, "estado", formatoARechazadoState);
 
         when(proyectoService.obtenerPorId(1L)).thenReturn(proyecto);
+        
+        // Configurar el comportamiento del mock para simular reintentar
+        doAnswer(invocation -> {
+            ProyectoGrado p = invocation.getArgument(0);
+            p.setEstadoActual("EN_SEGUNDA_EVALUACION_FORMATO_A");
+            p.setNumeroIntento(p.getNumeroIntento() + 1);
+            return null;
+        }).when(formatoARechazadoState).reintentar(proyecto);
 
         facade.reintentarProyecto(1L);
 
