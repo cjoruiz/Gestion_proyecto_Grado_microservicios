@@ -1,3 +1,4 @@
+// co.edu.unicauca.project_microservice.service.NotificationServiceClient.java
 package co.edu.unicauca.project_microservice.service;
 
 import co.edu.unicauca.project_microservice.infra.dto.*;
@@ -24,6 +25,9 @@ public class NotificationServiceClient implements INotificationServiceClient {
     @Value("${app.rabbitmq.routingkey.anteproyecto}")
     private String routingKeyAnteproyecto;
 
+    @Value("${app.rabbitmq.routingkey.asignacion.evaluadores}")
+    private String routingKeyAsignacionEvaluadores;
+
     @Override
     public void notificarFormatoASubido(FormatoASubidoEvent event) {
         rabbitTemplate.convertAndSend(exchange, routingKeyFormatoA, event);
@@ -37,5 +41,10 @@ public class NotificationServiceClient implements INotificationServiceClient {
     @Override
     public void notificarAnteproyectoSubido(AnteproyectoSubidoEvent event) {
         rabbitTemplate.convertAndSend(exchange, routingKeyAnteproyecto, event);
+    }
+
+    @Override
+    public void notificarAsignacionEvaluadores(AsignacionEvaluadoresEvent event) {
+        rabbitTemplate.convertAndSend(exchange, routingKeyAsignacionEvaluadores, event);
     }
 }

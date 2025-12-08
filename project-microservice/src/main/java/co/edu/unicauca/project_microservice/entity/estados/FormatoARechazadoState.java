@@ -14,13 +14,15 @@ public class FormatoARechazadoState implements EstadoProyecto {
     @Override
     public void reintentar(ProyectoGrado proyecto) {
         int nuevoIntento = proyecto.getNumeroIntento() + 1;
-        if (nuevoIntento >= 3) {
-            proyecto.setEstado(new RechazadoDefinitivoState());
-        } else if (nuevoIntento == 2) {
+
+        if (nuevoIntento == 2) {
             proyecto.setEstado(new EnSegundaEvaluacionState());
         } else if (nuevoIntento == 3) {
             proyecto.setEstado(new EnTerceraEvaluacionState());
+        } else if (nuevoIntento > 3) {
+            proyecto.setEstado(new RechazadoDefinitivoState());
         }
+
         proyecto.setNumeroIntento(nuevoIntento);
     }
 

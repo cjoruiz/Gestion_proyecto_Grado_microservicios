@@ -1,6 +1,7 @@
 package co.edu.unicauca.project_microservice.service;
 
 import co.edu.unicauca.project_microservice.entity.ProyectoGrado;
+import co.edu.unicauca.project_microservice.entity.estados.AnteproyectoEnviadoState;
 import co.edu.unicauca.project_microservice.entity.estados.EnPrimeraEvaluacionState;
 import co.edu.unicauca.project_microservice.entity.estados.EnSegundaEvaluacionState;
 import co.edu.unicauca.project_microservice.entity.estados.EnTerceraEvaluacionState;
@@ -32,6 +33,8 @@ public class ProyectoService implements IProyectoService {
     private FormatoARechazadoState rechazado;
     @Autowired
     private RechazadoDefinitivoState definitivo;
+    @Autowired
+    private AnteproyectoEnviadoState anteproyectoEnviado;
 
 
     @Override
@@ -39,13 +42,12 @@ public class ProyectoService implements IProyectoService {
         return proyectoRepository.save(proyecto);
     }
 
-     @Override
+    @Override
     public ProyectoGrado obtenerPorId(Long id) {
         ProyectoGrado p = proyectoRepository.findById(id)
                 .orElseThrow(() -> new ProyectoNoEncontradoException("Proyecto no encontrado con ID: " + id));
 
-        p.inicializarEstado(enPrimera, enSegunda, enTercera, aprobado, rechazado, definitivo);
-
+        p.inicializarEstado(enPrimera, enSegunda, enTercera, aprobado, rechazado, definitivo, anteproyectoEnviado);
         return p;
     }
 
@@ -67,5 +69,13 @@ public class ProyectoService implements IProyectoService {
     @Override
     public ProyectoGrado guardar(ProyectoGrado proyecto) {
         return proyectoRepository.save(proyecto);
+    }
+    @Override
+    public List<ProyectoGrado> obtenerProyectosPorEstudiante(String email) {
+        return proyectoRepository.findByEstudiante1EmailOrEstudiante2Email(email);
+    }
+    @Override
+    public List<ProyectoGrado> findByDirectorEmailOrCodirectorEmail(String email) {
+        return proyectoRepository.findByDirectorEmailOrCodirectorEmail(email, email);
     }
 }

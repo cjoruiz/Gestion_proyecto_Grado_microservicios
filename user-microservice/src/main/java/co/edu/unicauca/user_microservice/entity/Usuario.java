@@ -11,12 +11,19 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public abstract class Usuario {
     @Id
+    // Asumiendo que el email es el identificador único y proviene de Keycloak
     @Column(unique = true, nullable = false)
-    private String email; 
+    private String email;
 
-    private String password;
+    // Datos auxiliares que no son credenciales ni roles primarios
     private String nombres;
     private String apellidos;
     private String celular;
     private String programa;
+    private String password; // Por ejemplo, INGENIERIA_SISTEMAS
+
+    // Constructor con email (el identificador principal)
+    public Usuario(String email) {
+        this.email = email;
+    }
 }

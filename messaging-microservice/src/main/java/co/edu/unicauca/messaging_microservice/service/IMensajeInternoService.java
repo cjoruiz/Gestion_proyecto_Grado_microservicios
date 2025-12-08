@@ -11,4 +11,5 @@ public interface IMensajeInternoService {
     List<MensajeInterno> obtenerMensajesEnviadosPorEstudiante(String emailEstudiante);
     List<MensajeInterno> obtenerMensajesRecibidosPorDocente(String emailDocente);
     boolean marcarComoLeido(Long idMensaje);
+    MensajeInterno obtenerPorId(Long idMensaje);
 }

@@ -1,5 +1,8 @@
 package co.edu.unicauca.project_microservice.entity;
 
+import java.time.LocalDateTime;
+
+import co.edu.unicauca.project_microservice.entity.estados.AnteproyectoEnviadoState;
 import co.edu.unicauca.project_microservice.entity.estados.EnPrimeraEvaluacionState;
 import co.edu.unicauca.project_microservice.entity.estados.EnSegundaEvaluacionState;
 import co.edu.unicauca.project_microservice.entity.estados.EnTerceraEvaluacionState;
@@ -30,7 +33,11 @@ public class ProyectoGrado {
     private String observacionesEvaluacion;
     private int numeroIntento = 1;
     private String estadoActual; // Persistente
-
+     @Column(name = "fecha_creacion")
+    private LocalDateTime fechaCreacion;
+    
+    @Column(name = "fecha_anteproyecto")
+    private LocalDateTime fechaAnteproyecto;
     @Transient
     private EstadoProyecto estado;
 
@@ -40,13 +47,20 @@ public class ProyectoGrado {
             this.estadoActual = estado.getNombreEstado();
         }
     }
-
+    @PrePersist
+    protected void onCreate() {
+        if (fechaCreacion == null) {
+            fechaCreacion = LocalDateTime.now();
+        }
+    }
     public void inicializarEstado(EnPrimeraEvaluacionState enPrimera,
             EnSegundaEvaluacionState enSegunda,
             EnTerceraEvaluacionState enTercera,
             FormatoAAprobadoState aprobado,
             FormatoARechazadoState rechazado,
-            RechazadoDefinitivoState definitivo) {
+            RechazadoDefinitivoState definitivo,
+            AnteproyectoEnviadoState anteproyectoEnviado )
+             {
         switch (this.estadoActual) {
             case "EN_PRIMERA_EVALUACION_FORMATO_A":
                 this.estado = enPrimera;
@@ -65,6 +79,9 @@ public class ProyectoGrado {
                 break;
             case "RECHAZADO_DEFINITIVO":
                 this.estado = definitivo;
+                break;
+            case "ANTEPROYECTO_ENVIADO":
+                this.estado = anteproyectoEnviado;
                 break;
             default:
                 throw new IllegalStateException("Estado desconocido: " + this.estadoActual);

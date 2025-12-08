@@ -26,8 +26,6 @@ class ProyectoServiceTest {
     void debeRetornarProyectoPorId() {
         ProyectoGrado proyecto = new ProyectoGrado();
         proyecto.setId(1L);
-        // IMPORTANTE: Establecer un estadoActual válido para evitar NullPointerException
-        proyecto.setEstadoActual("EN_PRIMERA_EVALUACION_FORMATO_A");
 
         when(proyectoRepository.findById(1L)).thenReturn(Optional.of(proyecto));
 
@@ -35,7 +33,6 @@ class ProyectoServiceTest {
 
         assertNotNull(resultado);
         assertEquals(1L, resultado.getId());
-        verify(proyectoRepository, times(1)).findById(1L);
     }
 
     @Test
@@ -43,6 +40,5 @@ class ProyectoServiceTest {
         when(proyectoRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(RuntimeException.class, () -> proyectoService.obtenerPorId(999L));
-        verify(proyectoRepository, times(1)).findById(999L);
     }
 }

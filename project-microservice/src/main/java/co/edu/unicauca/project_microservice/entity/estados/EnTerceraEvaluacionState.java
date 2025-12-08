@@ -12,7 +12,7 @@ public class EnTerceraEvaluacionState implements EstadoProyecto {
         if (aprobado) {
             proyecto.setEstado(new FormatoAAprobadoState());
         } else {
-            proyecto.setEstado(new FormatoARechazadoState());
+            proyecto.setEstado(new RechazadoDefinitivoState());
         }
     }
 

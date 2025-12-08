@@ -18,12 +18,12 @@ public class RabbitMQConfig {
     public static final String FORMATO_A_QUEUE = "formato-a.submitted";
     public static final String EVALUACION_QUEUE = "proyecto.evaluado";
     public static final String ANTEPROYECTO_QUEUE = "anteproyecto.submitted";
-
+    public static final String ASIGNACION_EVALUADORES_QUEUE = "asignacion.evaluadores";
     // Routing keys
     public static final String FORMATO_A_ROUTING_KEY = "formato-a.submitted";
     public static final String EVALUACION_ROUTING_KEY = "proyecto.evaluado";
     public static final String ANTEPROYECTO_ROUTING_KEY = "anteproyecto.submitted";
-
+    public static final String ASIGNACION_EVALUADORES_ROUTING_KEY = "asignacion.evaluadores";
     @Bean
     public DirectExchange notificacionesExchange() {
         return new DirectExchange(NOTIFICACIONES_EXCHANGE);
@@ -32,7 +32,7 @@ public class RabbitMQConfig {
     @Bean public Queue formatoAQueue() { return new Queue(FORMATO_A_QUEUE, true); }
     @Bean public Queue evaluacionQueue() { return new Queue(EVALUACION_QUEUE, true); }
     @Bean public Queue anteproyectoQueue() { return new Queue(ANTEPROYECTO_QUEUE, true); }
-
+    @Bean public Queue asignacionEvaluadoresQueue() { return new Queue(ASIGNACION_EVALUADORES_QUEUE, true); }
     @Bean
     public Binding bindingFormatoA() {
         return BindingBuilder.bind(formatoAQueue()).to(notificacionesExchange()).with(FORMATO_A_ROUTING_KEY);
@@ -47,7 +47,13 @@ public class RabbitMQConfig {
     public Binding bindingAnteproyecto() {
         return BindingBuilder.bind(anteproyectoQueue()).to(notificacionesExchange()).with(ANTEPROYECTO_ROUTING_KEY);
     }
-
+    
+    @Bean
+    public Binding bindingAsignacionEvaluadores() {
+        return BindingBuilder.bind(asignacionEvaluadoresQueue())
+            .to(notificacionesExchange())
+            .with(ASIGNACION_EVALUADORES_ROUTING_KEY);
+    }
     @Bean
     public Jackson2JsonMessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();

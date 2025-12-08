@@ -1,32 +1,23 @@
 package co.edu.unicauca.user_microservice.controller;
 
-import co.edu.unicauca.user_microservice.entity.Coordinador;
-import co.edu.unicauca.user_microservice.entity.Docente;
-import co.edu.unicauca.user_microservice.entity.Estudiante;
-import co.edu.unicauca.user_microservice.entity.JefeDepartamento;
-import co.edu.unicauca.user_microservice.infra.dto.CoordinadorRequest;
-import co.edu.unicauca.user_microservice.infra.dto.DocenteRequest;
-import co.edu.unicauca.user_microservice.infra.dto.EstudianteRequest;
-import co.edu.unicauca.user_microservice.infra.dto.JefeDepartamentoRequest;
+import co.edu.unicauca.user_microservice.entity.*;
+import co.edu.unicauca.user_microservice.entity.enums.TipoDocente;
+import co.edu.unicauca.user_microservice.infra.dto.*;
 import co.edu.unicauca.user_microservice.service.IUsuarioService;
+import co.edu.unicauca.user_microservice.utilities.exception.*;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-
-/**
- * Controlador REST para gestionar el registro y consulta de usuarios.
- * Soporta los roles: Docente, Estudiante, Coordinador y Jefe de Departamento.
- */
 @RestController
 @RequestMapping("/api/usuarios")
 @Tag(name = "Gestión de Usuarios", description = "API para registrar y consultar usuarios del sistema")
@@ -35,98 +26,109 @@ public class UsuarioController {
     @Autowired
     private IUsuarioService usuarioService;
 
-        @Operation(summary = "Validar existencia y rol de un usuario")
+    // ========== ENDPOINTS ESPECÍFICOS (DEBEN IR PRIMERO) ==========
+    
+    @Operation(summary = "Validar existencia y rol del usuario autenticado")
     @GetMapping("/validar")
-    public ResponseEntity<Map<String, Object>> validarUsuario(@RequestParam String email) {
+    public ResponseEntity<Map<String, Object>> validarUsuario(Authentication authentication) {
         try {
-            boolean existe = usuarioService.existeUsuario(email);
-            String rol = existe ? usuarioService.obtenerRol(email) : "DESCONOCIDO";
-            Map<String, Object> respuesta = Map.of("existe", existe, "rol", rol);
+            if (!(authentication.getPrincipal() instanceof Jwt jwt)) {
+                return ResponseEntity.status(400).body(Map.of("error", "Token inválido"));
+            }
+
+            String email = jwt.getClaimAsString("email");
+            if (email == null) {
+                return ResponseEntity.status(400).body(Map.of("existe", false, "rol", "DESCONOCIDO", "error", "Email no encontrado en el token"));
+            }
+
+            Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+            String rol = "DESCONOCIDO";
+            if (resourceAccess != null && resourceAccess.containsKey("sistema-desktop")) {
+                Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get("sistema-desktop");
+                List<String> roles = (List<String>) clientAccess.get("roles");
+                if (roles != null && !roles.isEmpty()) {
+                    for (String role : roles) {
+                        if ("ESTUDIANTE".equals(role)) { rol = "ESTUDIANTE"; break; }
+                        if ("DOCENTE".equals(role)) { rol = "DOCENTE"; break; }
+                        if ("COORDINADOR".equals(role)) { rol = "COORDINADOR"; break; }
+                        if ("JEFE_DEPARTAMENTO".equals(role)) { rol = "JEFE_DEPARTAMENTO"; break; }
+                    }
+                }
+            }
+
+            Map<String, Object> respuesta = Map.of(
+                "existe", true,
+                "rol", rol,
+                "email", email
+            );
             return ResponseEntity.ok(respuesta);
         } catch (Exception e) {
             return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         }
     }
-    // ========== DOCENTES ==========
-    @Operation(
-        summary = "Registrar un nuevo docente",
-        description = "Registra un docente en el sistema con validación de email institucional y contraseña fuerte.",
-        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "Datos del docente a registrar",
-            required = true,
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = DocenteRequest.class),
-                examples = @ExampleObject(
-                    name = "Ejemplo de docente",
-                    value = """
-                    {
-                      "email": "juan.perez@unicauca.edu.co",
-                      "password": "Pass123!",
-                      "nombres": "Juan Carlos",
-                      "apellidos": "Pérez Gómez",
-                      "celular": "3101234567",
-                      "programa": "INGENIERIA_SISTEMAS",
-                      "tipoDocente": "PLANTA"
-                    }
-                    """
-                )
-            )
-        ),
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Docente registrado exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Solicitud inválida")
-        }
-    )
-    @PostMapping("/docentes")
-    public ResponseEntity<?> registrarDocente(@RequestBody DocenteRequest request) {
-        try {
-            Docente docente = new Docente();
-            docente.setEmail(request.getEmail());
-            docente.setPassword(request.getPassword());
-            docente.setNombres(request.getNombres());
-            docente.setApellidos(request.getApellidos());
-            docente.setCelular(request.getCelular());
-            docente.setPrograma(request.getPrograma());
-            docente.setTipoDocente(request.getTipoDocente());
 
-            Docente resultado = (Docente) usuarioService.registrarDocente(docente);
-            return ResponseEntity.ok(resultado);
+    @Operation(summary = "Obtener docentes por programa (para jefes de departamento)")
+    @GetMapping("/docentes-por-programa")
+    @PreAuthorize("hasRole('JEFE_DEPARTAMENTO')")
+    public ResponseEntity<?> obtenerDocentesPorPrograma(
+            @RequestParam(required = false) String programa,
+            Authentication authentication) {
+
+        System.out.println("[DEBUG CONTROLLER] Endpoint /docentes-por-programa llamado");
+        System.out.println("[DEBUG CONTROLLER] Programa recibido: " + programa);
+
+        // 1. Validar que el usuario esté autenticado con JWT
+        if (!(authentication.getPrincipal() instanceof Jwt jwt)) {
+            return ResponseEntity.status(401).body(Map.of("error", "Token inválido o no proporcionado"));
+        }
+
+        // 2. Extraer email y roles del token
+        String email = jwt.getClaimAsString("email");
+        if (email == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Email no encontrado en el token"));
+        }
+
+        String rol = "DESCONOCIDO";
+        Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+        if (resourceAccess != null && resourceAccess.containsKey("sistema-desktop")) {
+            Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get("sistema-desktop");
+            List<String> roles = (List<String>) clientAccess.get("roles");
+            if (roles != null) {
+                for (String r : roles) {
+                    if ("JEFE_DEPARTAMENTO".equals(r)) {
+                        rol = "JEFE_DEPARTAMENTO";
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Si no se envía 'programa', devolver error
+        if (programa == null || programa.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "El parámetro 'programa' es obligatorio"));
+        }
+
+        // 4. Validar que sea JEFE_DEPARTAMENTO
+        if (!"JEFE_DEPARTAMENTO".equals(rol)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Acceso denegado: se requiere rol JEFE_DEPARTAMENTO"));
+        }
+
+        // 5. Delegar al servicio
+        try {
+            System.out.println("[DEBUG CONTROLLER] Llamando al servicio con programa: " + programa);
+            List<UsuarioDetalladoDto> docentes = usuarioService.obtenerDocentesPorPrograma(programa);
+            System.out.println("[DEBUG CONTROLLER] Docentes encontrados: " + docentes.size());
+            return ResponseEntity.ok(docentes);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("{\"error\": \"" + e.getMessage() + "\"}");
+            System.err.println("[ERROR CONTROLLER] Error al obtener docentes: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "Error interno al obtener docentes: " + e.getMessage()));
         }
     }
 
-    // ========== ESTUDIANTES ==========
-    @Operation(
-        summary = "Registrar un nuevo estudiante",
-        description = "Registra un estudiante en el sistema.",
-        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "Datos del estudiante a registrar",
-            required = true,
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = EstudianteRequest.class),
-                examples = @ExampleObject(
-                    name = "Ejemplo de estudiante",
-                    value = """
-                    {
-                      "email": "ana.gomez@unicauca.edu.co",
-                      "password": "Stud123!",
-                      "nombres": "Ana María",
-                      "apellidos": "Gómez López",
-                      "celular": "3209876543",
-                      "programa": "INGENIERIA_SISTEMAS"
-                    }
-                    """
-                )
-            )
-        ),
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Estudiante registrado exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Solicitud inválida")
-        }
-    )
+    // ========== ENDPOINTS DE REGISTRO (PÚBLICOS) ==========
+
+    @Operation(summary = "Registrar un nuevo estudiante")
     @PostMapping("/estudiantes")
     public ResponseEntity<?> registrarEstudiante(@RequestBody EstudianteRequest request) {
         try {
@@ -138,43 +140,44 @@ public class UsuarioController {
             estudiante.setCelular(request.getCelular());
             estudiante.setPrograma(request.getPrograma());
 
-            Estudiante resultado = (Estudiante) usuarioService.registrarEstudiante(estudiante);
-            return ResponseEntity.ok(resultado);
+            Usuario usuarioCreado = usuarioService.registrarEstudiante(estudiante);
+            return ResponseEntity.status(201).body(usuarioCreado);
+        } catch (UserAlreadyExistsException e) {
+            return ResponseEntity.status(409).body(Map.of("error", e.getMessage()));
+        } catch (InvalidUserDataException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("{\"error\": \"" + e.getMessage() + "\"}");
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "Error interno del servidor: " + e.getMessage()));
         }
     }
 
-    // ========== COORDINADORES ==========
-    @Operation(
-        summary = "Registrar un nuevo coordinador",
-        description = "Registra un coordinador de programa en el sistema.",
-        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "Datos del coordinador a registrar",
-            required = true,
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = CoordinadorRequest.class),
-                examples = @ExampleObject(
-                    name = "Ejemplo de coordinador",
-                    value = """
-                    {
-                      "email": "coordinador.sistemas@unicauca.edu.co",
-                      "password": "Coord123!",
-                      "nombres": "Carlos Alberto",
-                      "apellidos": "Ramírez Ruiz",
-                      "celular": "3151122334",
-                      "programa": "INGENIERIA_SISTEMAS"
-                    }
-                    """
-                )
-            )
-        ),
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Coordinador registrado exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Solicitud inválida")
+    @Operation(summary = "Registrar un nuevo docente")
+    @PostMapping("/docentes")
+    public ResponseEntity<?> registrarDocente(@RequestBody DocenteRequest request) {
+        try {
+            Docente docente = new Docente();
+            docente.setEmail(request.getEmail());
+            docente.setPassword(request.getPassword());
+            docente.setNombres(request.getNombres());
+            docente.setApellidos(request.getApellidos());
+            docente.setCelular(request.getCelular());
+            docente.setPrograma(request.getPrograma());
+            docente.setTipoDocente(request.getTipoDocente() != null ? request.getTipoDocente() : TipoDocente.PLANTA);
+
+            Usuario usuarioCreado = usuarioService.registrarDocente(docente);
+            return ResponseEntity.status(201).body(usuarioCreado);
+        } catch (UserAlreadyExistsException e) {
+            return ResponseEntity.status(409).body(Map.of("error", e.getMessage()));
+        } catch (InvalidUserDataException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", "Error interno del servidor: " + e.getMessage()));
         }
-    )
+    }
+
+    @Operation(summary = "Registrar un nuevo coordinador")
     @PostMapping("/coordinadores")
     public ResponseEntity<?> registrarCoordinador(@RequestBody CoordinadorRequest request) {
         try {
@@ -186,43 +189,18 @@ public class UsuarioController {
             coordinador.setCelular(request.getCelular());
             coordinador.setPrograma(request.getPrograma());
 
-            Coordinador resultado = (Coordinador) usuarioService.registrarCoordinador(coordinador);
-            return ResponseEntity.ok(resultado);
+            Usuario usuarioCreado = usuarioService.registrarCoordinador(coordinador);
+            return ResponseEntity.status(201).body(usuarioCreado);
+        } catch (UserAlreadyExistsException e) {
+            return ResponseEntity.status(409).body(Map.of("error", e.getMessage()));
+        } catch (InvalidUserDataException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("{\"error\": \"" + e.getMessage() + "\"}");
+            return ResponseEntity.status(500).body(Map.of("error", "Error interno del servidor"));
         }
     }
 
-    // ========== JEFES DE DEPARTAMENTO ==========
-    @Operation(
-        summary = "Registrar un nuevo jefe de departamento",
-        description = "Registra un jefe de departamento en el sistema.",
-        requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "Datos del jefe de departamento a registrar",
-            required = true,
-            content = @Content(
-                mediaType = "application/json",
-                schema = @Schema(implementation = JefeDepartamentoRequest.class),
-                examples = @ExampleObject(
-                    name = "Ejemplo de jefe de departamento",
-                    value = """
-                    {
-                      "email": "jefe.sistemas@unicauca.edu.co",
-                      "password": "Jefe123!",
-                      "nombres": "María Fernanda",
-                      "apellidos": "López Sánchez",
-                      "celular": "3161122334",
-                      "programa": "INGENIERIA_SISTEMAS"
-                    }
-                    """
-                )
-            )
-        ),
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Jefe de departamento registrado exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Solicitud inválida")
-        }
-    )
+    @Operation(summary = "Registrar un nuevo jefe de departamento")
     @PostMapping("/jefes-departamento")
     public ResponseEntity<?> registrarJefeDepartamento(@RequestBody JefeDepartamentoRequest request) {
         try {
@@ -234,37 +212,46 @@ public class UsuarioController {
             jefe.setCelular(request.getCelular());
             jefe.setPrograma(request.getPrograma());
 
-            JefeDepartamento resultado = (JefeDepartamento) usuarioService.registrarJefeDepartamento(jefe);
-            return ResponseEntity.ok(resultado);
+            Usuario usuarioCreado = usuarioService.registrarJefeDepartamento(jefe);
+            return ResponseEntity.status(201).body(usuarioCreado);
+        } catch (UserAlreadyExistsException e) {
+            return ResponseEntity.status(409).body(Map.of("error", e.getMessage()));
+        } catch (InvalidUserDataException e) {
+            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("{\"error\": \"" + e.getMessage() + "\"}");
+            return ResponseEntity.status(500).body(Map.of("error", "Error interno del servidor"));
         }
     }
 
-    // ========== CONSULTA GENÉRICA ==========
-    @Operation(
-        summary = "Obtener un usuario por email",
-        description = "Recupera los datos de un usuario registrado usando su email.",
-        parameters = {
-            @io.swagger.v3.oas.annotations.Parameter(
-                name = "email",
-                description = "Email del usuario a consultar",
-                required = true,
-                example = "juan.perez@unicauca.edu.co"
-            )
-        },
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Usuario encontrado"),
-            @ApiResponse(responseCode = "404", description = "Usuario no encontrado")
-        }
-    )
-    @GetMapping("/{email}")
+    // ========== ENDPOINT GENÉRICO (DEBE IR AL FINAL) ==========
+
+    @Operation(summary = "Obtener un usuario por email")
+    @GetMapping("/{email:.+}")
     public ResponseEntity<?> obtenerUsuario(@PathVariable String email) {
         try {
-            var usuario = usuarioService.obtenerPorEmail(email);
-            return ResponseEntity.ok(usuario);
+            System.out.println("[DEBUG CONTROLLER] Endpoint /{email} llamado con: " + email);
+            
+            Usuario usuarioJPA = usuarioService.obtenerPorEmail(email);
+
+            if (usuarioJPA != null) {
+                UsuarioDetalladoDto usuarioDto = new UsuarioDetalladoDto();
+                usuarioDto.setEmail(usuarioJPA.getEmail());
+                usuarioDto.setNombres(usuarioJPA.getNombres());
+                usuarioDto.setApellidos(usuarioJPA.getApellidos());
+                usuarioDto.setCelular(usuarioJPA.getCelular());
+                usuarioDto.setPrograma(usuarioJPA.getPrograma());
+                
+                String rol = usuarioService.obtenerRol(email);
+                usuarioDto.setRol(rol);
+
+                return ResponseEntity.ok(usuarioDto);
+            } else {
+                return ResponseEntity.status(404).body(Map.of("error", "Usuario no encontrado"));
+            }
         } catch (Exception e) {
-            return ResponseEntity.status(404).body("{\"error\": \"" + e.getMessage() + "\"}");
+            System.err.println("Error obteniendo usuario: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
 }

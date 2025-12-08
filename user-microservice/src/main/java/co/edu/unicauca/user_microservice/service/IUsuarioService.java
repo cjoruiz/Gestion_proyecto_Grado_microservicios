@@ -1,10 +1,14 @@
 package co.edu.unicauca.user_microservice.service;
 
 import co.edu.unicauca.user_microservice.entity.Usuario;
+import co.edu.unicauca.user_microservice.infra.dto.UsuarioDetalladoDto;
 import co.edu.unicauca.user_microservice.utilities.exception.InvalidUserDataException;
 import co.edu.unicauca.user_microservice.utilities.exception.UserAlreadyExistsException;
 
+import java.util.List;
+
 public interface IUsuarioService {
+    // Métodos existentes
     Usuario registrarDocente(Usuario usuario) throws UserAlreadyExistsException, InvalidUserDataException;
     Usuario registrarEstudiante(Usuario usuario) throws UserAlreadyExistsException, InvalidUserDataException;
     Usuario registrarCoordinador(Usuario usuario) throws UserAlreadyExistsException, InvalidUserDataException;
@@ -12,4 +16,6 @@ public interface IUsuarioService {
     Usuario obtenerPorEmail(String email) throws InvalidUserDataException;
     boolean existeUsuario(String email);
     String obtenerRol(String email);
+    
+    List<UsuarioDetalladoDto> obtenerDocentesPorPrograma(String programa);
 }

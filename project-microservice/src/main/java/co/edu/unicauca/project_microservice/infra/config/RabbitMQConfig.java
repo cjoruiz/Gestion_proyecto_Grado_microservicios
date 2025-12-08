@@ -15,26 +15,57 @@ public class RabbitMQConfig {
     public static final String FORMATO_A_ROUTING_KEY = "formato-a.submitted";
     public static final String EVALUACION_ROUTING_KEY = "proyecto.evaluado";
     public static final String ANTEPROYECTO_ROUTING_KEY = "anteproyecto.submitted";
+    public static final String ASIGNACION_EVALUADORES_ROUTING_KEY = "asignacion.evaluadores";
 
-    @Bean public DirectExchange notificacionesExchange() {
+    @Bean
+    public DirectExchange notificacionesExchange() {
         return new DirectExchange(NOTIFICACIONES_EXCHANGE);
     }
 
-    @Bean public Queue formatoAQueue() { return new Queue("formato-a.submitted", true); }
-    @Bean public Queue evaluacionQueue() { return new Queue("proyecto.evaluado", true); }
-    @Bean public Queue anteproyectoQueue() { return new Queue("anteproyecto.submitted", true); }
+    @Bean
+    public Queue formatoAQueue() {
+        return new Queue("formato-a.submitted", true);
+    }
 
-    @Bean public Binding bindingFormatoA() {
+    @Bean
+    public Queue evaluacionQueue() {
+        return new Queue("proyecto.evaluado", true);
+    }
+
+    @Bean
+    public Queue anteproyectoQueue() {
+        return new Queue("anteproyecto.submitted", true);
+    }
+
+    @Bean
+    public Queue asignacionEvaluadoresQueue() {
+        return new Queue("asignacion.evaluadores", true);
+    }
+
+    @Bean
+    public Binding bindingFormatoA() {
         return BindingBuilder.bind(formatoAQueue()).to(notificacionesExchange()).with(FORMATO_A_ROUTING_KEY);
     }
-    @Bean public Binding bindingEvaluacion() {
+
+    @Bean
+    public Binding bindingEvaluacion() {
         return BindingBuilder.bind(evaluacionQueue()).to(notificacionesExchange()).with(EVALUACION_ROUTING_KEY);
     }
-    @Bean public Binding bindingAnteproyecto() {
+
+    @Bean
+    public Binding bindingAnteproyecto() {
         return BindingBuilder.bind(anteproyectoQueue()).to(notificacionesExchange()).with(ANTEPROYECTO_ROUTING_KEY);
     }
 
-    @Bean public Jackson2JsonMessageConverter jsonMessageConverter() {
+    @Bean
+    public Binding bindingAsignacionEvaluadores() {
+        return BindingBuilder.bind(asignacionEvaluadoresQueue())
+            .to(notificacionesExchange())
+            .with(ASIGNACION_EVALUADORES_ROUTING_KEY);
+    }
+
+    @Bean
+    public Jackson2JsonMessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
     }
 }

@@ -1,0 +1,72 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # Microservicio de Documentos
+        - id: document-microservice
+          uri: ${DOCUMENT_SERVICE_URI:http://localhost:8083}
+          predicates:
+            - Path=/documentos/**
+          filters:
+            - name: RewritePath
+              args:
+                regexp: "/documentos/(?<segment>.*)"
+                replacement: "/api/documentos/${segment}"
+
+        # Microservicio de Mensajería
+        - id: messaging-microservice
+          uri: ${MESSAGING_SERVICE_URI:http://localhost:8085}
+          predicates:
+            - Path=/mensajes/**
+          filters:
+            - RewritePath=/mensajes/(?<segment>.*), /api/mensajes/$\{segment}
+
+        # Microservicio de Proyectos - Ruta raíz
+        - id: project-microservice-root
+          uri: ${PROJECT_SERVICE_URI:http://localhost:8082}
+          predicates:
+            - Path=/proyectos
+          filters:
+            - RewritePath=/proyectos, /api/proyectos
+            - name: SetRequestHeader
+              args:
+                Name: Content-Type
+                Value: application/json
+
+        # Microservicio de Proyectos - Ruta con segmentos
+        - id: project-microservice-with-segments
+          uri: ${PROJECT_SERVICE_URI:http://localhost:8082}
+          predicates:
+            - Path=/proyectos/**
+          filters:
+            - RewritePath=/proyectos/(?<segment>.*), /api/proyectos/${segment}
+            - name: SetRequestHeader
+              args:
+                Name: Content-Type
+                Value: application/json
+
+        # Microservicio de Usuarios
+        - id: user-microservice
+          uri: ${USER_SERVICE_URI:http://localhost:8081}
+          predicates:
+            - Path=/usuarios/**
+          filters:
+            - RewritePath=/usuarios/(?<segment>.*), /api/usuarios/$\{segment}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://keycloak:8080/realms/sistema/protocol/openid-connect/certs
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.core.env: DEBUG

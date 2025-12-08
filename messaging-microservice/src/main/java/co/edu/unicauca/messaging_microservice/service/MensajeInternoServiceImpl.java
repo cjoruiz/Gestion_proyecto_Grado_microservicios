@@ -60,4 +60,8 @@ public class MensajeInternoServiceImpl implements IMensajeInternoService {
                 })
                 .orElse(false);
     }
+    @Override
+    public MensajeInterno obtenerPorId(Long idMensaje) {
+        return mensajeRepository.findById(idMensaje).orElse(null);
+    }
 }
