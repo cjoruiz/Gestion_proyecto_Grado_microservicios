@@ -6,6 +6,8 @@ EXPOSE 8082
 #DEFINIR DIRECTORIO RAIZ DEL CONTENEDOR
 WORKDIR /app
 
+#COPIA EL JAR AL CONTENEDOR
 COPY target/project-microservice-0.0.1-SNAPSHOT.jar app.jar
 
+#COMANDO DE INICIO
 ENTRYPOINT ["java","-jar","app.jar"]

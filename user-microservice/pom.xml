@@ -46,12 +46,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
-        <!-- Esta dependencia es necesaria para la configuración del Gateway,
-             pero en este microservicio NO se activa la validación de recursos JWT -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
-        </dependency>
+       
         <!-- Dependencia para interactuar con Keycloak Admin -->
         <dependency>
             <groupId>org.keycloak</groupId>

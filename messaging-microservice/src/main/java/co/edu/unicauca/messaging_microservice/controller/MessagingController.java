@@ -5,10 +5,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,8 +14,8 @@ import co.edu.unicauca.messaging_microservice.entity.MensajeInterno;
 import co.edu.unicauca.messaging_microservice.infra.dto.MensajeInternoRequest;
 import co.edu.unicauca.messaging_microservice.infra.dto.MensajeResponse;
 import co.edu.unicauca.messaging_microservice.service.IMensajeInternoService;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import co.edu.unicauca.messaging_microservice.utilities.JwtUtil;
+
 import java.util.List;
 
 @RestController
@@ -28,31 +26,27 @@ public class MessagingController {
     @Autowired
     private IMensajeInternoService mensajeService;
 
-    private String extractEmailFromJwt(Authentication authentication) {
-        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            Jwt jwt = jwtAuth.getToken();
-            String email = jwt.getClaimAsString("email");
-            if (email == null || email.isEmpty()) {
-                email = jwt.getClaimAsString("preferred_username");
-            }
-            return email;
-        }
-        return null;
-    }
-    
     @PostMapping("/enviar")
-    @PreAuthorize("hasRole('ESTUDIANTE') or hasRole('DOCENTE')")
-    public ResponseEntity<MensajeResponse> enviarMensaje(@RequestParam String remitenteEmail,
-                                                         @RequestParam String destinatariosEmail,
-                                                         @RequestParam String asunto,
-                                                         @RequestParam String cuerpo,
-                                                         @RequestParam(required = false) MultipartFile documentoAdjunto,
-                                                         Authentication authentication) { // ⬅️ Agregar parámetro
+    public ResponseEntity<MensajeResponse> enviarMensaje(
+            @RequestParam String remitenteEmail,
+            @RequestParam String destinatariosEmail,
+            @RequestParam String asunto,
+            @RequestParam String cuerpo,
+            @RequestParam(required = false) MultipartFile documentoAdjunto,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         
-        String emailUsuarioAutenticado = extractEmailFromJwt(authentication);
+        // Extraer email del token
+        String emailUsuarioAutenticado = JwtUtil.extractEmailFromToken(authHeader);
         
-        if (emailUsuarioAutenticado == null || !emailUsuarioAutenticado.equals(remitenteEmail)) {
-            return ResponseEntity.badRequest().body(new MensajeResponse("No autorizado: El remitente no coincide con el usuario autenticado.", "ERROR"));
+        if (emailUsuarioAutenticado == null) {
+            return ResponseEntity.status(401)
+                .body(new MensajeResponse("No autorizado: Token inválido", "ERROR"));
+        }
+        
+        // Validar que el remitente coincida con el usuario autenticado
+        if (!emailUsuarioAutenticado.equals(remitenteEmail)) {
+            return ResponseEntity.badRequest()
+                .body(new MensajeResponse("No autorizado: El remitente no coincide con el usuario autenticado.", "ERROR"));
         }
 
         try {
@@ -70,16 +64,13 @@ public class MessagingController {
         }
     }
 
-    @Operation(
-        summary = "Obtener mensajes enviados por un estudiante",
-        parameters = {
-            @io.swagger.v3.oas.annotations.Parameter(name = "email", description = "Email del estudiante", example = "estudiante@unicauca.edu.co")
-        }
-    )
+    @Operation(summary = "Obtener mensajes enviados por un estudiante")
     @GetMapping("/enviados/{email}")
-    @PreAuthorize("hasRole('ESTUDIANTE') or hasRole('DOCENTE')")
-    public ResponseEntity<List<MensajeInterno>> getMensajesEnviados(@PathVariable String email, Authentication authentication) {
-        String emailUsuarioAutenticado = extractEmailFromJwt(authentication);
+    public ResponseEntity<List<MensajeInterno>> getMensajesEnviados(
+            @PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        
+        String emailUsuarioAutenticado = JwtUtil.extractEmailFromToken(authHeader);
         
         System.out.println("[DEBUG] Mensajes enviados - Email autenticado: " + emailUsuarioAutenticado + ", Email solicitado: " + email);
         
@@ -91,16 +82,13 @@ public class MessagingController {
         return ResponseEntity.ok(mensajes);
     }
 
-    @Operation(
-        summary = "Obtener mensajes recibidos por un docente",
-        parameters = {
-            @io.swagger.v3.oas.annotations.Parameter(name = "email", description = "Email del docente", example = "docente@unicauca.edu.co")
-        }
-    )
+    @Operation(summary = "Obtener mensajes recibidos por un docente")
     @GetMapping("/recibidos/{email}")
-    @PreAuthorize("hasRole('ESTUDIANTE') or hasRole('DOCENTE')")
-    public ResponseEntity<List<MensajeInterno>> getMensajesRecibidos(@PathVariable String email, Authentication authentication) {
-        String emailUsuarioAutenticado = extractEmailFromJwt(authentication);
+    public ResponseEntity<List<MensajeInterno>> getMensajesRecibidos(
+            @PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        
+        String emailUsuarioAutenticado = JwtUtil.extractEmailFromToken(authHeader);
         
         System.out.println("[DEBUG] Mensajes recibidos - Email autenticado: " + emailUsuarioAutenticado + ", Email solicitado: " + email);
         
@@ -114,15 +102,25 @@ public class MessagingController {
     
     @Operation(summary = "Descargar archivo adjunto de un mensaje")
     @GetMapping("/archivo/{idMensaje}")
-    @PreAuthorize("hasRole('ESTUDIANTE') or hasRole('DOCENTE') or hasRole('COORDINADOR') or hasRole('JEFE_DEPARTAMENTO')")
-    public ResponseEntity<ByteArrayResource> descargarArchivoAdjunto(@PathVariable Long idMensaje) {
+    public ResponseEntity<ByteArrayResource> descargarArchivoAdjunto(
+            @PathVariable Long idMensaje,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        
+        String emailUsuarioAutenticado = JwtUtil.extractEmailFromToken(authHeader);
+        
+        if (emailUsuarioAutenticado == null) {
+            return ResponseEntity.status(401).build();
+        }
+
         try {
             MensajeInterno mensaje = mensajeService.obtenerPorId(idMensaje);
             if (mensaje == null || mensaje.getDocumentoAdjunto() == null) {
                 return ResponseEntity.notFound().build();
             }
+            
             String nombre = mensaje.getNombreArchivo() != null ? mensaje.getNombreArchivo() : "adjunto.pdf";
             ByteArrayResource resource = new ByteArrayResource(mensaje.getDocumentoAdjunto());
+            
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nombre + "\"")
                     .contentType(MediaType.APPLICATION_OCTET_STREAM) 

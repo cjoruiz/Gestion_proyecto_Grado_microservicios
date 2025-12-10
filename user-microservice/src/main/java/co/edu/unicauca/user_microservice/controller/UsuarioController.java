@@ -5,6 +5,7 @@ import co.edu.unicauca.user_microservice.entity.enums.TipoDocente;
 import co.edu.unicauca.user_microservice.infra.dto.*;
 import co.edu.unicauca.user_microservice.service.IUsuarioService;
 import co.edu.unicauca.user_microservice.utilities.exception.*;
+import co.edu.unicauca.user_microservice.utilities.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
@@ -13,9 +14,6 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,35 +24,22 @@ public class UsuarioController {
     @Autowired
     private IUsuarioService usuarioService;
 
-    // ========== ENDPOINTS ESPECÍFICOS (DEBEN IR PRIMERO) ==========
-    
     @Operation(summary = "Validar existencia y rol del usuario autenticado")
     @GetMapping("/validar")
-    public ResponseEntity<Map<String, Object>> validarUsuario(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> validarUsuario(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (!(authentication.getPrincipal() instanceof Jwt jwt)) {
-                return ResponseEntity.status(400).body(Map.of("error", "Token inválido"));
-            }
-
-            String email = jwt.getClaimAsString("email");
+            String email = JwtUtil.extractEmailFromToken(authHeader);
+            
             if (email == null) {
-                return ResponseEntity.status(400).body(Map.of("existe", false, "rol", "DESCONOCIDO", "error", "Email no encontrado en el token"));
+                return ResponseEntity.status(400).body(Map.of(
+                    "existe", false,
+                    "rol", "DESCONOCIDO",
+                    "error", "Email no encontrado en el token"
+                ));
             }
 
-            Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
-            String rol = "DESCONOCIDO";
-            if (resourceAccess != null && resourceAccess.containsKey("sistema-desktop")) {
-                Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get("sistema-desktop");
-                List<String> roles = (List<String>) clientAccess.get("roles");
-                if (roles != null && !roles.isEmpty()) {
-                    for (String role : roles) {
-                        if ("ESTUDIANTE".equals(role)) { rol = "ESTUDIANTE"; break; }
-                        if ("DOCENTE".equals(role)) { rol = "DOCENTE"; break; }
-                        if ("COORDINADOR".equals(role)) { rol = "COORDINADOR"; break; }
-                        if ("JEFE_DEPARTAMENTO".equals(role)) { rol = "JEFE_DEPARTAMENTO"; break; }
-                    }
-                }
-            }
+            String rol = usuarioService.obtenerRol(email);
 
             Map<String, Object> respuesta = Map.of(
                 "existe", true,
@@ -69,51 +54,29 @@ public class UsuarioController {
 
     @Operation(summary = "Obtener docentes por programa (para jefes de departamento)")
     @GetMapping("/docentes-por-programa")
-    @PreAuthorize("hasRole('JEFE_DEPARTAMENTO')")
     public ResponseEntity<?> obtenerDocentesPorPrograma(
             @RequestParam(required = false) String programa,
-            Authentication authentication) {
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
         System.out.println("[DEBUG CONTROLLER] Endpoint /docentes-por-programa llamado");
         System.out.println("[DEBUG CONTROLLER] Programa recibido: " + programa);
 
-        // 1. Validar que el usuario esté autenticado con JWT
-        if (!(authentication.getPrincipal() instanceof Jwt jwt)) {
-            return ResponseEntity.status(401).body(Map.of("error", "Token inválido o no proporcionado"));
-        }
-
-        // 2. Extraer email y roles del token
-        String email = jwt.getClaimAsString("email");
+        String email = JwtUtil.extractEmailFromToken(authHeader);
+        
         if (email == null) {
             return ResponseEntity.status(401).body(Map.of("error", "Email no encontrado en el token"));
         }
 
-        String rol = "DESCONOCIDO";
-        Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
-        if (resourceAccess != null && resourceAccess.containsKey("sistema-desktop")) {
-            Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get("sistema-desktop");
-            List<String> roles = (List<String>) clientAccess.get("roles");
-            if (roles != null) {
-                for (String r : roles) {
-                    if ("JEFE_DEPARTAMENTO".equals(r)) {
-                        rol = "JEFE_DEPARTAMENTO";
-                        break;
-                    }
-                }
-            }
-        }
-
-        // 3. Si no se envía 'programa', devolver error
-        if (programa == null || programa.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "El parámetro 'programa' es obligatorio"));
-        }
-
-        // 4. Validar que sea JEFE_DEPARTAMENTO
+        // Validar que sea JEFE_DEPARTAMENTO (el Gateway ya lo validó, pero doble check)
+        String rol = usuarioService.obtenerRol(email);
         if (!"JEFE_DEPARTAMENTO".equals(rol)) {
             return ResponseEntity.status(403).body(Map.of("error", "Acceso denegado: se requiere rol JEFE_DEPARTAMENTO"));
         }
 
-        // 5. Delegar al servicio
+        if (programa == null || programa.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "El parámetro 'programa' es obligatorio"));
+        }
+
         try {
             System.out.println("[DEBUG CONTROLLER] Llamando al servicio con programa: " + programa);
             List<UsuarioDetalladoDto> docentes = usuarioService.obtenerDocentesPorPrograma(programa);
@@ -223,14 +186,20 @@ public class UsuarioController {
         }
     }
 
-    // ========== ENDPOINT GENÉRICO (DEBE IR AL FINAL) ==========
-
     @Operation(summary = "Obtener un usuario por email")
     @GetMapping("/{email:.+}")
-    public ResponseEntity<?> obtenerUsuario(@PathVariable String email) {
+    public ResponseEntity<?> obtenerUsuario(
+            @PathVariable String email,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             System.out.println("[DEBUG CONTROLLER] Endpoint /{email} llamado con: " + email);
             
+            String emailAutenticado = JwtUtil.extractEmailFromToken(authHeader);
+            
+            if (emailAutenticado == null) {
+                return ResponseEntity.status(401).body(Map.of("error", "No autorizado"));
+            }
+
             Usuario usuarioJPA = usuarioService.obtenerPorEmail(email);
 
             if (usuarioJPA != null) {
